@@ -12,8 +12,8 @@ The TopoAcoustic Discovery Engine utilizes a heavily decoupled, Domain-Driven Ar
        | (Async Polling)
 +------v---------------------------------------------------+
 | WORKSTREAM 1: ETL PIPELINE (Async Background Workers)    |
-|  [Audio Ingestion] -> [DSP Extraction] -> [Topology]     |
-|  (Python/Redis)       (librosa/NumPy)     (giotto-tda)   |
+|  [Ingest & Stream] -> [DSP & Sync] -> [Topology]         |
+|  (yt-dlp buffer)      (librosa/NumPy) (giotto-tda)       |
 +------+-------------------------+-------------------------+
        | (PostgreSQL Metadata)   | (1500-d Vector)
        v                         v
@@ -45,11 +45,9 @@ The TopoAcoustic Discovery Engine utilizes a heavily decoupled, Domain-Driven Ar
 
 1. **Discover:** The Audio Ingestion worker scrapes the Spotify API for tracks with popularity < 50.
 
-2. **Download & Queue:** It downloads a 30s `.mp3` to `/tmp` and pushes a Celery task to Redis.
+2. **Stream & Extract:** The worker spins up `yt-dlp` to stream the audio directly into an in-memory buffer. `librosa` extracts a 12-D Chroma and 12-D Timbre (MFCC) feature matrix, applying beat-synchronous pooling (`librosa.util.sync`) and a Takens delay embedding (yielding a 48-D point cloud). The raw audio buffer is immediately discarded.
 
-3. **Extract:** A DSP worker loads the audio via `librosa`, extracts a 25xT feature matrix, and deletes the `.mp3`.
-
-4. **Topology Mapping:** The Topology Engine computes Vietoris-Rips filtrations, outputting a 1500-d Persistence Landscape.
+3. **Topology Mapping:** The Topology Engine computes Vietoris-Rips filtrations on the beat-synchronized 48-D point cloud, outputting a 1500-d Persistence Landscape.
 
 5. **Storage:** Metadata is written to PostgreSQL (Supabase). The 1500-d vector is written to the HNSW RAM Node.
 
