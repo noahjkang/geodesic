@@ -13,7 +13,7 @@ Unlike traditional recommendation engines that use collaborative filtering or co
 ## 2. Mathematical Foundations & Processing Pipeline
 The core engine relies on modeling audio signals as continuous bounded metric spaces $X \subset \mathbb{R}^n$. The transformation of raw audio into a searchable vector index follows a strict, non-linear mathematical pipeline.
 ### 2.1 Digital Signal Processing & Feature Extraction
-Every ingested 30-second audio preview file (.mp3 format, sampled at **22,050 Hz**, mono) is converted into a uniform numerical matrix. The platform rejects high-level metadata tags in favor of low-level psychoacoustic coordinates:
+Audio is streamed into memory (bypassing disk storage) and converted into a uniform numerical matrix. The platform rejects high-level metadata tags in favor of low-level psychoacoustic coordinates:
 - **Mel-Frequency Cepstral Coefficients (MFCCs):** 20 coefficients computed over window lengths of 2,048 samples with a hop length of 512 samples, capturing the precise timbral envelope.
 - **Spectral Centroid:** Computes the center of gravity of the spectrum, mapping the perceived "brightness" of the audio signal over time.
 - **Daubechies Wavelet Histograms:** Wavelet transforms decompose the signal into multi-resolution frequency bands, creating stable histograms that represent transient rhythmic structures and localized energy shifts without sacrificing time-domain localization.
@@ -55,11 +55,11 @@ The system abandons the traditional frontend/backend monolith in favor of a stri
 
 ### 3.1 Workstream 1: ETL Pipeline (Data & Math)
 
-**Goal:** The asynchronous, headless data engine that scours Spotify, downloads audio, applies DSP, and executes Topological Data Analysis to generate 1500-d vectors.
+**Goal:** The asynchronous, headless data engine that scours for tracks, streams audio into memory, applies DSP, and executes Topological Data Analysis to generate 1500-d vectors.
 
 **Sub-Project 1A: Audio Ingestion**
 
-- **Description:** The automated scout interfacing with Spotify Web API to discover and download obscure tracks (popularity < 50).
+- **Description:** The automated scout interfacing with Spotify Web API to discover tracks and pass their URLs to the stream-and-discard pipeline.
 
 - **Inputs:** Spotify Web API search endpoints. Scheduled via Cron/Daemon.
 
@@ -67,12 +67,12 @@ The system abandons the traditional frontend/backend monolith in favor of a stri
 
 - **Failure States:** API Rate Limiting (applies exponential backoff), Dead URLs (logs and skips), Corrupt Files (deletes partial fragments).
 
-- **Performance:** < 150MB RAM limit. /tmp storage capped at 5GB. Garbage collection must execute post-processing.
+- **Performance:** Buffer memory must be actively managed. Audio is never saved to disk; the in-memory buffer is discarded immediately after extraction.
 
 
 **Sub-Project 1B: Feature Extraction**
 
-- **Description:** Strips noise and distills raw audio into a 25xT deterministic mathematical matrix (MFCCs, Spectral Centroid, Wavelets).
+- **Description:** Strips noise and distills the memory buffer into a 48-D point cloud (12-D Chroma, 12-D Timbre, Takens delay embedding, beat-synchronous pooling).
 
 - **Inputs:** Redis message queue payload containing the downloaded `.mp3` path.
 
@@ -87,7 +87,7 @@ The system abandons the traditional frontend/backend monolith in favor of a stri
 
 - **Description:** Projects the DSP matrix into phase space, computes Vietoris-Rips complexes, extracts homology, and outputs the 1500-d vector.
 
-- **Inputs:** Redis message queue containing the 25xT DSP matrix.
+- **Inputs:** Redis message queue containing the 48-D beat-synchronized point cloud.
 
 - **Outputs:** JSON payload containing the 1500-d topological signature and Betti summaries, sent to Workstream 2 & 3.
 
