@@ -2,6 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { MapControls, Stats } from '@react-three/drei';
 import * as THREE from 'three';
 import InstancedNodes from './InstancedNodes';
+import CameraController from './CameraController';
 import { useUIStore } from '../store/useUIStore';
 
 
@@ -26,6 +27,9 @@ export default function WebGLManifold() {
           maxDistance={200}
           minDistance={5}
         />
+        
+        {/* Handles programmatic flying/lerping across the manifold */}
+        <CameraController />
         
         {/* Performance stats overlaid inside the WebGL context bounds */}
         <Stats />
