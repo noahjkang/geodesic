@@ -41,7 +41,8 @@ const ArtistSearchBar: React.FC = () => {
     searchQuery, setSearchQuery, 
     searchResults, setSearchResults, 
     isSearching, setIsSearching,
-    selectedArtist, setSelectedArtist
+    selectedArtist, setSelectedArtist,
+    nodes, setCameraTarget, setActiveNode
   } = useUIStore();
   
   const [inputValue, setInputValue] = useState(searchQuery);
@@ -95,6 +96,19 @@ const ArtistSearchBar: React.FC = () => {
     setSearchQuery(artist.name);
     setSearchResults([]);
     setShowDropdown(false);
+    
+    // Attempt to locate the artist in the currently loaded topological nodes
+    const foundNode = nodes.find(n => n.metadata.artist_name.toLowerCase() === artist.name.toLowerCase());
+    
+    if (foundNode) {
+      setActiveNode(foundNode.spotify_track_id, true);
+      // Position the camera slightly above the node to give a good viewing angle
+      setCameraTarget([foundNode.umap_x, foundNode.umap_y, 25]);
+    } else {
+      // If the artist isn't in our loaded 10,000 nodes, we could trigger a backend fetch here
+      // For now, we'll just log it.
+      console.log(`Artist ${artist.name} selected but not found in current local manifold chunk.`);
+    }
   };
 
   return (
